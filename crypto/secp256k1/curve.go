@@ -34,6 +34,7 @@ package secp256k1
 
 import (
 	"crypto/elliptic"
+	"fmt"
 	"math/big"
 	"unsafe"
 )
@@ -129,6 +130,7 @@ func (BitCurve *BitCurve) affineFromJacobian(x, y, z *big.Int) (xOut, yOut *big.
 
 // Add returns the sum of (x1,y1) and (x2,y2)
 func (BitCurve *BitCurve) Add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
+	fmt.Println("this is add")
 	z := new(big.Int).SetInt64(1)
 	return BitCurve.affineFromJacobian(BitCurve.addJacobian(x1, y1, z, x2, y2, z))
 }

@@ -197,7 +197,7 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'stopWS',
 			call: 'admin_stopWS'
-		}),
+		})
 	],
 	properties: [
 		new web3._extend.Property({

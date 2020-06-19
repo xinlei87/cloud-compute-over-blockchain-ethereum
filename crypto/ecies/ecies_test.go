@@ -275,7 +275,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		fmt.Println(err.Error())
 		t.FailNow()
 	}
-
+	fmt.Println(pt)
 	if !bytes.Equal(pt, message) {
 		fmt.Println("ecies: plaintext doesn't match message")
 		t.FailNow()

@@ -52,6 +52,7 @@ func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
 //
 // The produced signature is in the [R || S || V] format where V is 0 or 1.
 func Sign(hash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
+	// fmt.Println("this is cgo")
 	if len(hash) != 32 {
 		return nil, fmt.Errorf("hash is required to be exactly 32 bytes (%d)", len(hash))
 	}
@@ -65,6 +66,9 @@ func Sign(hash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
 // The signature should have the 64 byte [R || S] format.
 func VerifySignature(pubkey, hash, signature []byte) bool {
 	return secp256k1.VerifySignature(pubkey, hash, signature)
+}
+func VerifySignature2(pubkey, hash, signature []byte) bool {
+	return secp256k1.VerifySignature2(pubkey, hash, signature)
 }
 
 // DecompressPubkey parses a public key in the 33-byte compressed format.

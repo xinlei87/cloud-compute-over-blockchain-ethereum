@@ -58,6 +58,7 @@ func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
 //
 // The produced signature is in the [R || S || V] format where V is 0 or 1.
 func Sign(hash []byte, prv *ecdsa.PrivateKey) ([]byte, error) {
+	fmt.Println("this is sign")
 	if len(hash) != 32 {
 		return nil, fmt.Errorf("hash is required to be exactly 32 bytes (%d)", len(hash))
 	}
@@ -80,15 +81,18 @@ func Sign(hash []byte, prv *ecdsa.PrivateKey) ([]byte, error) {
 // The signature should have the 64 byte [R || S] format.
 func VerifySignature(pubkey, hash, signature []byte) bool {
 	if len(signature) != 64 {
+
 		return false
 	}
 	sig := &btcec.Signature{R: new(big.Int).SetBytes(signature[:32]), S: new(big.Int).SetBytes(signature[32:])}
 	key, err := btcec.ParsePubKey(pubkey, btcec.S256())
 	if err != nil {
+
 		return false
 	}
 	// Reject malleable signatures. libsecp256k1 does this check but btcec doesn't.
 	if sig.S.Cmp(secp256k1halfN) > 0 {
+
 		return false
 	}
 	return sig.Verify(hash, key)

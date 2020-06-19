@@ -98,6 +98,7 @@ static int secp256k1_ext_reencode_pubkey(
 //  In:     point:    pointer to a 64-byte public point,
 //                    encoded as two 256bit big-endian numbers.
 //          scalar:   a 32-byte scalar with which to multiply the point
+//修改为64字节的数字
 int secp256k1_ext_scalar_mul(const secp256k1_context* ctx, unsigned char *point, const unsigned char *scalar) {
 	int ret = 0;
 	int overflow = 0;

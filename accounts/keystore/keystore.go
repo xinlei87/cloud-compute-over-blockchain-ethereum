@@ -281,6 +281,7 @@ func (ks *KeyStore) SignTx(a accounts.Account, tx *types.Transaction, chainID *b
 	if chainID != nil {
 		return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
 	}
+	// fmt.Println("keyis", unlockedKey.PrivateKey)
 	return types.SignTx(tx, types.HomesteadSigner{}, unlockedKey.PrivateKey)
 }
 

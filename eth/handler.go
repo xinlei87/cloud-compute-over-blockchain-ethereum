@@ -684,6 +684,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.MarkTransaction(tx.Hash())
 		}
 		pm.txpool.AddRemotes(txs)
+		fmt.Println()
+		fmt.Println("transacition")
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)

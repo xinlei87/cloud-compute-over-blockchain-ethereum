@@ -17,16 +17,23 @@
 package vm
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"math/big"
+	"strings"
 
+	"github.com/Nik-U/pbc"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/bn256"
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/crypto/ripemd160"
+	//ABEO
 )
 
 // PrecompiledContract is the basic interface for native Go contracts. The implementation
@@ -40,23 +47,27 @@ type PrecompiledContract interface {
 // PrecompiledContractsHomestead contains the default set of pre-compiled Ethereum
 // contracts used in the Frontier and Homestead releases.
 var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
-	common.BytesToAddress([]byte{1}): &ecrecover{},
-	common.BytesToAddress([]byte{2}): &sha256hash{},
-	common.BytesToAddress([]byte{3}): &ripemd160hash{},
-	common.BytesToAddress([]byte{4}): &dataCopy{},
+	common.BytesToAddress([]byte{1}):  &ecrecover{},
+	common.BytesToAddress([]byte{2}):  &sha256hash{},
+	common.BytesToAddress([]byte{3}):  &ripemd160hash{},
+	common.BytesToAddress([]byte{4}):  &dataCopy{},
+	common.BytesToAddress([]byte{14}): &veriCipher{},
+	common.BytesToAddress([]byte{15}): &veriTV{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
 // contracts used in the Byzantium release.
 var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
-	common.BytesToAddress([]byte{1}): &ecrecover{},
-	common.BytesToAddress([]byte{2}): &sha256hash{},
-	common.BytesToAddress([]byte{3}): &ripemd160hash{},
-	common.BytesToAddress([]byte{4}): &dataCopy{},
-	common.BytesToAddress([]byte{5}): &bigModExp{},
-	common.BytesToAddress([]byte{6}): &bn256Add{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMul{},
-	common.BytesToAddress([]byte{8}): &bn256Pairing{},
+	common.BytesToAddress([]byte{1}):  &ecrecover{},
+	common.BytesToAddress([]byte{2}):  &sha256hash{},
+	common.BytesToAddress([]byte{3}):  &ripemd160hash{},
+	common.BytesToAddress([]byte{4}):  &dataCopy{},
+	common.BytesToAddress([]byte{5}):  &bigModExp{},
+	common.BytesToAddress([]byte{6}):  &bn256Add{},
+	common.BytesToAddress([]byte{7}):  &bn256ScalarMul{},
+	common.BytesToAddress([]byte{8}):  &bn256Pairing{},
+	common.BytesToAddress([]byte{14}): &veriCipher{},
+	common.BytesToAddress([]byte{15}): &veriTV{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -357,4 +368,239 @@ func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
 		return true32Byte, nil
 	}
 	return false32Byte, nil
+}
+
+//ABOE
+
+type veriCipher struct{}
+
+func (c *veriCipher) RequiredGas(input []byte) uint64 {
+	return params.VeriCipherGas
+}
+func (c *veriCipher) Run(input []byte) ([]byte, error) {
+	//输入参数转化格式
+	// fmt.Println("\n\n\nthis is veriTV\n\n\n")
+	inputstrings := string(input)
+	// fmt.Println(inputstrings)
+	strarry := strings.Split(inputstrings, "#")
+	CTstr := strarry[0]
+	sigstr := strarry[1]
+	wkeystr := strarry[2]
+
+	// 验证数字签名
+	x := "28126393105534499844491643222365191633009819397978928136324307863797025799826392896504160681368146936224101503199803"
+	y := "27952977125817235228458522778224406172679477709881127170323567934678551503367564891609181639945741566596193739505449"
+	xtemp, _ := new(big.Int).SetString(x, 10)
+	ytemp, _ := new(big.Int).SetString(y, 10)
+	pub := &ecdsa.PublicKey{
+		Curve: elliptic.P384(),
+		X:     xtemp,
+		Y:     ytemp,
+	}
+	var sigmap map[string]*big.Int
+	sigstr = strings.Replace(sigstr, "'", "\"", -1)
+	input = []byte(sigstr)
+	json.Unmarshal(input, &sigmap)
+	// 假设验证通过
+	ecdsa.Verify(pub, []byte(CTstr), sigmap["r"], sigmap["s"])
+	var CTmap map[string]string
+	CTstr = strings.Replace(CTstr, "'", "\"", -1)
+	CTstr = strings.Replace(CTstr, "[", "\"[", -1)
+	CTstr = strings.Replace(CTstr, "]", "]\"", -1)
+	input = []byte(CTstr)
+	json.Unmarshal(input, &CTmap)
+	// fmt.Println(CTmap)
+	// fmt.Println(isok)
+	ecstr := `type a
+	q 8780710799663312522437781984754049815806883199414208211028653399266475630880222957078625179422662221423155858769582317459277713367317481324925129998224791
+	h 12016012264891146079388821366740534204802954401251311822919615131047207289359704531102844802183906537786776
+	r 730750818665451621361119245571504901405976559617
+	exp2 159
+	exp1 107
+	sign1 1
+	sign0 1
+	`
+	pairing, _ := pbc.NewPairingFromString(ecstr)
+	cpr, _ := pairing.NewGT().SetString(CTmap["c0"], 10)
+	yy, _ := pairing.NewZr().SetString(wkeystr, 10)
+	cc := cpr.PowZn(cpr, yy).String()
+	result := 0
+	if cc == CTmap["c1"] {
+		result = 1
+	}
+
+	bytes32Ans := make([]byte, 0, 32)
+
+	for i := 0; i < 31; i++ {
+		bytes32Ans = append(bytes32Ans, 0)
+	}
+	if result == 1 {
+		bytes32Ans = append(bytes32Ans, 1) // verify successfully
+	} else {
+		bytes32Ans = append(bytes32Ans, 0) // verify unsuccessfully
+	}
+
+	return bytes32Ans, nil
+}
+
+type veriTV struct{}
+
+func (c *veriTV) RequiredGas(input []byte) uint64 {
+	return params.VeriTVGas
+}
+
+type tkdata struct {
+	Tk1 string
+	Tk2 string
+	Tk3 map[string]string
+	Tk4 map[string]string
+}
+type vkdata struct {
+	Vk1 string
+	Vk2 string
+	Vk3 map[string]string
+	Vk4 map[string]string
+}
+type rkyesdata struct {
+	Attr map[string]*big.Int
+	Rpr  *big.Int
+	Ripr map[string]*big.Int
+}
+
+func (c *veriTV) Run(input []byte) ([]byte, error) {
+	bytes32Ans := make([]byte, 0, 32)
+	for i := 0; i < 31; i++ {
+		bytes32Ans = append(bytes32Ans, 0)
+	}
+	//输入参数转化格式
+	inputstrings := string(input)
+	// fmt.Println("input is ", inputstrings)
+	strarry := strings.Split(inputstrings, "#")
+	// fmt.Println(tkvkstr)
+	rkeysstr := strarry[0]
+	pkstr := strarry[1]
+	tkstr := strarry[2]
+	vkstr := strarry[3]
+	wkstr := strarry[4]
+	keyshash := strarry[5]
+	// -------------检测hash值-----------------
+	hash := sha256.New()
+	// fmt.Println(pkstr + tkstr + vkstr)
+	hash.Write([]byte(pkstr + tkstr + vkstr))
+	temphash := hex.EncodeToString(hash.Sum(nil))
+	if temphash != keyshash {
+		bytes32Ans = append(bytes32Ans, 0)
+		return bytes32Ans, nil
+	}
+	// ------------转化数据格式------------
+	//pk
+	var pkstrmap map[string]string
+	pkstr = strings.Replace(pkstr, "'", "\"", -1)
+	pkstr = strings.Replace(pkstr, "[", "\"[", -1)
+	pkstr = strings.Replace(pkstr, "]", "]\"", -1)
+	input = []byte(pkstr)
+	json.Unmarshal(input, &pkstrmap)
+	//tk
+	tkstr = strings.Replace(tkstr, "'", "\"", -1)
+	tkstr = strings.Replace(tkstr, "[", "\"[", -1)
+	tkstr = strings.Replace(tkstr, "]", "]\"", -1)
+	tkstrmap := tkdata{}
+	input = []byte(tkstr)
+	json.Unmarshal(input, &tkstrmap)
+	//vk
+	vkstr = strings.Replace(vkstr, "'", "\"", -1)
+	vkstr = strings.Replace(vkstr, "[", "\"[", -1)
+	vkstr = strings.Replace(vkstr, "]", "]\"", -1)
+	vkstrmap := vkdata{}
+	input = []byte(vkstr)
+	json.Unmarshal(input, &vkstrmap)
+
+	//检测参数
+	//rkey
+	rkeysstr = strings.Replace(rkeysstr, "'", "\"", -1)
+	rkeysintmap := rkyesdata{}
+	input = []byte(rkeysstr)
+	json.Unmarshal(input, &rkeysintmap)
+
+	//椭圆曲线的计算
+	str := `type a
+	q 8780710799663312522437781984754049815806883199414208211028653399266475630880222957078625179422662221423155858769582317459277713367317481324925129998224791
+	h 12016012264891146079388821366740534204802954401251311822919615131047207289359704531102844802183906537786776
+	r 730750818665451621361119245571504901405976559617
+	exp2 159
+	exp1 107
+	sign1 1
+	sign0 1
+	`
+
+	pairing, _ := pbc.NewPairingFromString(str)
+	// //格式转化，string转element类型
+	g, _ := pairing.NewG1().SetString(pkstrmap["g"], 10)
+	w, _ := pairing.NewG2().SetString(pkstrmap["w"], 10)
+	h, _ := pairing.NewG2().SetString(pkstrmap["h"], 10)
+	u, _ := pairing.NewG2().SetString(pkstrmap["u"], 10)
+	v, _ := pairing.NewG2().SetString(pkstrmap["v"], 10)
+	r := pairing.NewZr().SetBig(rkeysintmap.Rpr)
+	t1, _ := pairing.NewZr().SetString(wkstr, 10)
+
+	// //验证tk1，vk1
+	tk1, _ := pairing.NewG2().SetString(tkstrmap.Tk1, 10)
+	temp := pairing.NewG2()
+	temp.PowZn(w, r)
+	temp.Mul(tk1, temp)
+	temp.PowZn(temp, t1)
+	tempstr := temp.String()
+	if tempstr != vkstrmap.Vk1 {
+		bytes32Ans = append(bytes32Ans, 0) // verify unsuccessfully
+		return bytes32Ans, nil
+	}
+	// //验证tk2，vk2
+	tk2, _ := pairing.NewG1().SetString(tkstrmap.Tk2, 10)
+	temp = pairing.NewG1()
+	temp.PowZn(g, r)
+	temp.Mul(tk2, temp)
+	temp.PowZn(temp, t1)
+	tempstr = temp.String()
+	if tempstr != vkstrmap.Vk2 {
+		bytes32Ans = append(bytes32Ans, 0) // verify unsuccessfully
+		return bytes32Ans, nil
+	}
+	// //验证tki3,vki3
+	temp = pairing.NewG1()
+	for k, v := range rkeysintmap.Ripr {
+		ri := pairing.NewZr().SetBig(v)
+		temp.PowZn(g, ri)
+		tki3, _ := pairing.NewG1().SetString(tkstrmap.Tk3[k], 10)
+		temp.Mul(tki3, temp)
+		temp.PowZn(temp, t1)
+		tempstr = temp.String()
+		if tempstr != vkstrmap.Vk3[k] {
+			bytes32Ans = append(bytes32Ans, 0) // verify unsuccessfully
+			return bytes32Ans, nil
+		}
+	}
+	// //验证tki4,vki4
+	temp = pairing.NewG2()
+	for k, value := range rkeysintmap.Attr {
+		ai := pairing.NewZr().SetBig(value)
+		ri := pairing.NewZr().SetBig(rkeysintmap.Ripr[k])
+		tki4, _ := pairing.NewG2().SetString(tkstrmap.Tk4[k], 10)
+		temp.PowZn(u, ai)
+		temp.Mul(temp, h)
+		temp.PowZn(temp, ri)
+		temp.Mul(tki4, temp)
+		temp2 := pairing.NewG2()
+		temp2.PowZn(v, r)
+		temp.Div(temp, temp2)
+		temp.PowZn(temp, t1)
+		tempstr = temp.String()
+		if tempstr != vkstrmap.Vk4[k] {
+			bytes32Ans = append(bytes32Ans, 0) // verify unsuccessfully
+			// fmt.Println("it is not ok")
+			return bytes32Ans, nil
+		}
+	}
+	bytes32Ans = append(bytes32Ans, 1) // verify successfully
+
+	return bytes32Ans, nil
 }
